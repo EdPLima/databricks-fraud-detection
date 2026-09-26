@@ -1,0 +1,39 @@
+# ============================================================================
+# Configuracao central do projeto
+# ============================================================================
+
+project:
+  name: databricks-fraud-detection
+  root: /Workspace/Users/eduardolimaofficial410@gmail.com/databricks-fraud-detection
+
+feature_store:
+  table: fraud_detection_dev.silver.fraud_features_store
+  split_column: split
+  train_value: train
+  val_value: val
+  test_value: test
+  split_methodology: temporal  # walk-forward, nao aleatorio
+
+experiments:
+  hpo: /Users/eduardolimaofficial410@gmail.com/databricks-fraud-detection/experiments/fraud_detection_walkforward
+  deploy: /Users/eduardolimaofficial410@gmail.com/databricks-fraud-detection/experiments/fraud_detection_deployment
+
+model:
+  registered_name: dev.fraud_detection_dev.model_xgb_dev
+  optimal_threshold: 0.83
+  max_bins: 1500
+  seed: 42
+
+preprocessing:
+  exclude_cols:
+    - TransactionID
+    - TransactionDT
+    - target
+    - class_weight
+  imputer_strategy: median
+  handle_invalid: keep
+
+# Colunas que nao sao features (identificadores, timestamps)
+non_feature_cols:
+  - TransactionID
+  - TransactionDT
