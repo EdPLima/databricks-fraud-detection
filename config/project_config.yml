@@ -7,7 +7,7 @@ project:
   root: /Workspace/Users/eduardolimaofficial410@gmail.com/databricks-fraud-detection
 
 feature_store:
-  table: fraud_detection_dev.silver.fraud_features_store
+  table: fraud_detection_dev.gold.fraud_features
   split_column: split
   train_value: train
   val_value: val
@@ -19,7 +19,7 @@ experiments:
   deploy: /Users/eduardolimaofficial410@gmail.com/databricks-fraud-detection/experiments/fraud_detection_deployment
 
 model:
-  registered_name: dev.fraud_detection_dev.model_xgb_dev
+  registered_name: fraud_detection_dev.models.xgboost_fraud_model
   optimal_threshold: 0.83
   max_bins: 1500
   seed: 42

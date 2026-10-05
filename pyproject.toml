@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "databricks-fraud-detection"
+version = "0.1.0"
+description = "Pipeline ML para detecção de fraude em transações financeiras"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    {name = "Eduardo Lima", email = "eduardolimaofficial410@gmail.com"}
+]
+
+dependencies = [
+    # ML Core (versões pinadas para reprodutibilidade do modelo)
+    "scikit-learn==1.7.2",
+    "xgboost==3.4.1",
+    "cloudpickle==3.1.1",
+    
+    # Data manipulation
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    
+    # Databricks
+    "mlflow>=2.10.0",
+    "databricks-feature-engineering>=0.2.0",
+    "databricks-sdk>=0.20.0",
+    
+    # Hyperparameter tuning
+    "optuna>=3.5.0",
+    
+    # Model interpretation
+    "shap>=0.44.0",
+    
+    # Config management
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    
+    # Code quality
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+    
+    # Notebooks
+    "ipykernel>=6.25.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501"]  # Line too long (handled by formatter)
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
