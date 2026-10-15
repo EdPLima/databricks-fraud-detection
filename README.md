@@ -78,21 +78,6 @@ O projeto segue as melhores práticas do [Databricks MLOps Stacks](https://docs.
 * **Unity Catalog:** Catálogo `fraud_detection_dev` com tabelas, feature tables e modelos
 * **MLflow:** Tracking, model registry, alias @champion
 
-**Status atual vs planejado:**
-
-| Componente | Status |
-|------------|--------|
-| Development workspace + MLflow tracking | ✅ Implementado |
-| Feature Store (Unity Catalog) | ✅ Implementado |
-| Model Registry + Serving endpoint | ✅ Implementado |
-| Git source control | ✅ Implementado |
-| Testes automatizados (unit + integration) | ✅ Implementado |
-| Batch inference job | ✅ Implementado |
-| Monitoramento & drift detection | ✅ Implementado |
-| Staging/Production workspaces | 🔄 Planejado (catálogos hml/prd) |
-| CI/CD (GitHub Actions) | 🔄 Planejado |
-| Retraining automatizado (Champion/Challenger) | 🔄 Planejado (notebooks em branco) |
-
 ### Pipeline de Dados
 
 **Bronze (raw) → Silver (features) → Gold (aggregates)**
