@@ -53,7 +53,7 @@ def test_apply_feature_engineering_creates_expected_columns(spark, sample_df):
 
 def test_apply_feature_engineering_device_isnull(spark, sample_df):
     sdf = spark.createDataFrame(sample_df.drop(columns=["dist1", "card2", "card3", "card5"]))
-    result = apply_feature_engineering_spark(sdf).toPandas()
+    result = apply_feature_engineering_spark(sdf).orderBy("TransactionID").toPandas()
 
     assert result.loc[0, "DeviceType_isnull"] == 0
     assert result.loc[1, "DeviceType_isnull"] == 1
@@ -61,7 +61,7 @@ def test_apply_feature_engineering_device_isnull(spark, sample_df):
 
 def test_apply_feature_engineering_email_match(spark, sample_df):
     sdf = spark.createDataFrame(sample_df.drop(columns=["dist1", "card2", "card3", "card5"]))
-    result = apply_feature_engineering_spark(sdf).toPandas()
+    result = apply_feature_engineering_spark(sdf).orderBy("TransactionID").toPandas()
 
     assert result.loc[0, "email_match"] == 1
     assert result.loc[2, "email_match"] == 0
