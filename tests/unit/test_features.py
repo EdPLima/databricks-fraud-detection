@@ -44,7 +44,6 @@ def test_apply_feature_engineering_creates_expected_columns(spark, sample_df):
     StructField("TransactionAmt", DoubleType(), True),
     StructField("TransactionDT", IntegerType(), True),
     StructField("ProductCD", StringType(), True),
-    StructField("card1", IntegerType(), True),
     StructField("card4", StringType(), True),
     StructField("card6", StringType(), True),
     StructField("P_emaildomain", StringType(), True),
@@ -52,6 +51,7 @@ def test_apply_feature_engineering_creates_expected_columns(spark, sample_df):
     StructField("DeviceType", StringType(), True),
     StructField("DeviceInfo", StringType(), True),
     StructField("addr1", DoubleType(), True),
+    StructField("card1", IntegerType(), True),
     ])
 
     sdf = spark.createDataFrame(sample_df.drop(columns=["dist1", "card2", "card3", "card5"]), schema)
@@ -80,7 +80,6 @@ def test_apply_feature_engineering_device_isnull(spark, sample_df):
     StructField("TransactionAmt", DoubleType(), True),
     StructField("TransactionDT", IntegerType(), True),
     StructField("ProductCD", StringType(), True),
-    StructField("card1", IntegerType(), True),
     StructField("card4", StringType(), True),
     StructField("card6", StringType(), True),
     StructField("P_emaildomain", StringType(), True),
@@ -88,6 +87,7 @@ def test_apply_feature_engineering_device_isnull(spark, sample_df):
     StructField("DeviceType", StringType(), True),
     StructField("DeviceInfo", StringType(), True),
     StructField("addr1", DoubleType(), True),
+    StructField("card1", IntegerType(), True),
     ])
 
     sdf = spark.createDataFrame(sample_df.drop(columns=["dist1", "card2", "card3", "card5"]), schema)
@@ -107,7 +107,6 @@ def test_apply_feature_engineering_email_match(spark, sample_df):
     StructField("TransactionAmt", DoubleType(), True),
     StructField("TransactionDT", IntegerType(), True),
     StructField("ProductCD", StringType(), True),
-    StructField("card1", IntegerType(), True),
     StructField("card4", StringType(), True),
     StructField("card6", StringType(), True),
     StructField("P_emaildomain", StringType(), True),
@@ -115,6 +114,7 @@ def test_apply_feature_engineering_email_match(spark, sample_df):
     StructField("DeviceType", StringType(), True),
     StructField("DeviceInfo", StringType(), True),
     StructField("addr1", DoubleType(), True),
+    StructField("card1", IntegerType(), True),
     ])
 
     sdf = spark.createDataFrame(sample_df.drop(columns=["dist1", "card2", "card3", "card5"]), schema)
