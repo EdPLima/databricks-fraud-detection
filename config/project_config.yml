@@ -6,6 +6,8 @@ project:
   name: databricks-fraud-detection
   root: /Workspace/Users/eduardolimaofficial410@gmail.com/databricks-fraud-detection
 
+catalog: fraud_detection_dev
+
 feature_store:
   table: fraud_detection_dev.gold.fraud_features
   split_column: split

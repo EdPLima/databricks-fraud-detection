@@ -1,0 +1,40 @@
+bundle:
+  name: databricks-fraud-detection
+
+include:
+  - resources/jobs/*.yml
+
+variables:
+  catalog:
+    default: fraud_detection_dev
+  schema:
+    default: gold
+  batch_type:
+    default: train
+
+targets:
+  dev:
+    default: true
+    mode: development
+    variables:
+      catalog: fraud_detection_dev
+      schema: gold
+      batch_type: train
+
+  hml:
+    mode: production
+    workspace:
+      root_path: /Workspace/Users/eduardolimaofficial410@gmail.com/.bundle/${bundle.name}/hml
+    variables:
+      catalog: fraud_detection_hml
+      schema: gold
+      batch_type: prod
+
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Users/eduardolimaofficial410@gmail.com/.bundle/${bundle.name}/prod
+    variables:
+      catalog: fraud_detection_prod
+      schema: gold
+      batch_type: prod

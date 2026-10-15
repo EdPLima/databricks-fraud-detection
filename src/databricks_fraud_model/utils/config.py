@@ -6,17 +6,19 @@ como constantes Python para todos os notebooks do projeto.
 
 Uso nos notebooks:
     import sys
-    sys.path.append("/Workspace/Users/eduardolimaofficial410@gmail.com/databricks-fraud-detection/src")
-    from config import load_config
+    sys.path.insert(0, "/Workspace/Users/eduardolimaofficial410@gmail.com/databricks-fraud-detection/src")
+    from databricks_fraud_model.utils import load_config
     cfg = load_config()
     FEATURE_STORE_TABLE = cfg["feature_store"]["table"]
 """
 
-import yaml
 import os
 
+import yaml
+
 # Caminho do arquivo de configuracao (relativo a raiz do projeto)
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# utils/config.py -> utils/ -> databricks_fraud_model/ -> src/ -> project_root
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 _CONFIG_PATH = os.path.join(_PROJECT_ROOT, "config", "project_config.yml")
 
 
