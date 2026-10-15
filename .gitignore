@@ -1,2 +1,9 @@
 # MLflow experiments (workspace objects, not source code)
 experiments/
+
+# Build artifacts
+*.egg-info/
+__pycache__/
+.pytest_cache/
+dist/
+build/
