@@ -35,26 +35,7 @@ def test_free_domains_is_list():
 
 
 def test_apply_feature_engineering_creates_expected_columns(spark, sample_df):
-    from pyspark.sql.types import (
-    StructType, StructField, StringType, DoubleType, IntegerType,
-    )
-
-    schema = StructType([
-    StructField("TransactionID", IntegerType(), True),
-    StructField("TransactionAmt", DoubleType(), True),
-    StructField("TransactionDT", IntegerType(), True),
-    StructField("ProductCD", StringType(), True),
-    StructField("card4", StringType(), True),
-    StructField("card6", StringType(), True),
-    StructField("P_emaildomain", StringType(), True),
-    StructField("R_emaildomain", StringType(), True),
-    StructField("DeviceType", StringType(), True),
-    StructField("DeviceInfo", StringType(), True),
-    StructField("addr1", DoubleType(), True),
-    StructField("card1", IntegerType(), True),
-    ])
-
-    sdf = spark.createDataFrame(sample_df.drop(columns=["dist1", "card2", "card3", "card5"]), schema)
+    sdf = spark.createDataFrame(sample_df.drop(columns=["dist1", "card2", "card3", "card5"]))
     result = apply_feature_engineering_spark(sdf)
 
     expected_new_cols = [
@@ -71,26 +52,7 @@ def test_apply_feature_engineering_creates_expected_columns(spark, sample_df):
 
 
 def test_apply_feature_engineering_device_isnull(spark, sample_df):
-    from pyspark.sql.types import (
-    StructType, StructField, StringType, DoubleType, IntegerType,
-    )
-
-    schema = StructType([
-    StructField("TransactionID", IntegerType(), True),
-    StructField("TransactionAmt", DoubleType(), True),
-    StructField("TransactionDT", IntegerType(), True),
-    StructField("ProductCD", StringType(), True),
-    StructField("card4", StringType(), True),
-    StructField("card6", StringType(), True),
-    StructField("P_emaildomain", StringType(), True),
-    StructField("R_emaildomain", StringType(), True),
-    StructField("DeviceType", StringType(), True),
-    StructField("DeviceInfo", StringType(), True),
-    StructField("addr1", DoubleType(), True),
-    StructField("card1", IntegerType(), True),
-    ])
-
-    sdf = spark.createDataFrame(sample_df.drop(columns=["dist1", "card2", "card3", "card5"]), schema)
+    sdf = spark.createDataFrame(sample_df.drop(columns=["dist1", "card2", "card3", "card5"]))
     result = apply_feature_engineering_spark(sdf).toPandas()
 
     assert result.loc[0, "DeviceType_isnull"] == 0
@@ -98,26 +60,7 @@ def test_apply_feature_engineering_device_isnull(spark, sample_df):
 
 
 def test_apply_feature_engineering_email_match(spark, sample_df):
-    from pyspark.sql.types import (
-    StructType, StructField, StringType, DoubleType, IntegerType,
-    )
-
-    schema = StructType([
-    StructField("TransactionID", IntegerType(), True),
-    StructField("TransactionAmt", DoubleType(), True),
-    StructField("TransactionDT", IntegerType(), True),
-    StructField("ProductCD", StringType(), True),
-    StructField("card4", StringType(), True),
-    StructField("card6", StringType(), True),
-    StructField("P_emaildomain", StringType(), True),
-    StructField("R_emaildomain", StringType(), True),
-    StructField("DeviceType", StringType(), True),
-    StructField("DeviceInfo", StringType(), True),
-    StructField("addr1", DoubleType(), True),
-    StructField("card1", IntegerType(), True),
-    ])
-
-    sdf = spark.createDataFrame(sample_df.drop(columns=["dist1", "card2", "card3", "card5"]), schema)
+    sdf = spark.createDataFrame(sample_df.drop(columns=["dist1", "card2", "card3", "card5"]))
     result = apply_feature_engineering_spark(sdf).toPandas()
 
     assert result.loc[0, "email_match"] == 1
