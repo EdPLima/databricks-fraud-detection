@@ -1,0 +1,48 @@
+resources:
+  jobs:
+    retraining:
+      name: "Retraining: Champion -> Challenger -> A/B Test -> Promocao"
+      description: "Pipeline de retreino: prepara dados, feature engineering, treina challenger com HPO, avalia contra champion, roda A/B test e promove se aprovado."
+      tasks:
+        - task_key: prepare_data
+          notebook_task:
+            notebook_path: ../../retraining/01_prepare_data.ipynb
+            base_parameters:
+              batch_type: ${var.batch_type}
+
+        - task_key: feature_engineering
+          depends_on:
+            - task_key: prepare_data
+          notebook_task:
+            notebook_path: ../../retraining/02_feature_engineering.ipynb
+
+        - task_key: train_challenger
+          depends_on:
+            - task_key: feature_engineering
+          notebook_task:
+            notebook_path: ../../retraining/03_train_challenger.ipynb
+
+        - task_key: evaluate_challenger
+          depends_on:
+            - task_key: train_challenger
+          notebook_task:
+            notebook_path: ../../retraining/04_evaluate_challenger.ipynb
+
+        - task_key: ab_test
+          depends_on:
+            - task_key: evaluate_challenger
+          notebook_task:
+            notebook_path: ../../retraining/05_ab_test.ipynb
+
+        - task_key: promote_model
+          depends_on:
+            - task_key: ab_test
+          notebook_task:
+            notebook_path: ../../retraining/06_promote_model.ipynb
+
+      schedule:
+        quartz_cron_expression: "0 0 8 10 * ?"
+        timezone_id: America/Sao_Paulo
+      tags:
+        layer: mlops
+        project: fraud-detection

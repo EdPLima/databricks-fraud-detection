@@ -1,0 +1,28 @@
+resources:
+  jobs:
+    etl_pipeline:
+      name: "ETL Pipeline: Bronze → Silver → Gold"
+      description: "Pipeline de carga escalavel: ingere dados brutos, limpa na silver e aplica feature engineering na gold."
+      tasks:
+        - task_key: bronze_ingest
+          notebook_task:
+            notebook_path: ../../pipeline/bronze/01_bronze_ingest.py
+            base_parameters:
+              batch_type: prd
+        - task_key: silver_clean
+          depends_on:
+            - task_key: bronze_ingest
+          notebook_task:
+            notebook_path: ../../pipeline/silver/02_silver_clean.ipynb
+            base_parameters:
+              batch_type: prd
+        - task_key: gold_feature_engineering
+          depends_on:
+            - task_key: silver_clean
+          notebook_task:
+            notebook_path: ../../pipeline/gold/03_gold_feature_engineering.ipynb
+            base_parameters:
+              batch_type: prd
+      tags:
+        layer: etl
+        project: fraud-detection

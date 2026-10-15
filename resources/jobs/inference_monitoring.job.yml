@@ -1,0 +1,20 @@
+resources:
+  jobs:
+    inference_monitoring:
+      name: "Inference & Monitoring: Scoring -> Dashboard MLOps"
+      description: "Scoring do modelo via endpoint REST + dashboard de latencia, drift e observabilidade."
+      tasks:
+        - task_key: scoring_model
+          notebook_task:
+            notebook_path: ../../pipeline/scoring/04_scoring.ipynb
+        - task_key: model_monitoring
+          depends_on:
+            - task_key: scoring_model
+          notebook_task:
+            notebook_path: ../../pipeline/monitoring/05_monitoring.ipynb
+      schedule:
+        quartz_cron_expression: "0 0 8 * * ?"
+        timezone_id: America/Sao_Paulo
+      tags:
+        layer: inference
+        project: fraud-detection

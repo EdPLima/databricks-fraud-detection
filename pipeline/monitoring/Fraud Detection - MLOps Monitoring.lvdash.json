@@ -1,0 +1,1501 @@
+{
+  "datasets": [
+    {
+      "name": "monitoring_events",
+      "displayName": "Monitoring Raw Events",
+      "config": {
+        "version": "1.1",
+        "source": "SELECT\n  event_timestamp,\n  TransactionID,\n  probability_fraud,\n  is_fraud,\n  latency_ms,\n  endpoint_name,\n  n_records,\n  status,\n  CASE\n    WHEN LAG(event_timestamp) OVER (PARTITION BY endpoint_name ORDER BY event_timestamp) IS NULL\n      THEN 'Cold Start'\n    WHEN event_timestamp - LAG(event_timestamp) OVER (PARTITION BY endpoint_name ORDER BY event_timestamp) > INTERVAL 5 MINUTES\n      THEN 'Cold Start'\n    ELSE 'Warm Start'\n  END AS start_type\nFROM fraud_detection_dev.bronze.monitoring_raw_events\n",
+        "dimensions": [
+          {
+            "name": "event_timestamp",
+            "expr": "event_timestamp"
+          },
+          {
+            "name": "status",
+            "expr": "status"
+          },
+          {
+            "name": "endpoint_name",
+            "expr": "endpoint_name"
+          },
+          {
+            "name": "start_type",
+            "expr": "start_type",
+            "displayName": "Start Type",
+            "comment": "Cold Start = first request after 5+ min gap or initial request; Warm Start = subsequent requests within 5 min"
+          }
+        ],
+        "measures": [
+          {
+            "name": "avg_latency_ms",
+            "expr": "AVG(latency_ms)",
+            "displayName": "Avg Latency per Request (ms)",
+            "comment": "Average HTTP round-trip latency per individual scoring request"
+          },
+          {
+            "name": "p50_latency_ms",
+            "expr": "PERCENTILE(latency_ms, 0.5)",
+            "displayName": "P50 Latency (ms)",
+            "comment": "Median latency across individual HTTP requests"
+          },
+          {
+            "name": "p95_latency_ms",
+            "expr": "PERCENTILE(latency_ms, 0.95)",
+            "displayName": "P95 Latency (ms)",
+            "comment": "95th percentile latency across individual HTTP requests"
+          },
+          {
+            "name": "p99_latency_ms",
+            "expr": "PERCENTILE(latency_ms, 0.99)",
+            "displayName": "P99 Latency (ms)",
+            "comment": "99th percentile latency across individual HTTP requests"
+          },
+          {
+            "name": "avg_latency_per_record_ms",
+            "expr": "SUM(latency_ms) / SUM(n_records)",
+            "displayName": "Avg Latency per Prediction (ms)",
+            "comment": "Total latency divided by total predictions — normalized per-prediction cost"
+          },
+          {
+            "name": "total_predictions",
+            "expr": "SUM(n_records)",
+            "displayName": "Total Predictions",
+            "comment": "Sum of n_records across all HTTP requests — actual prediction count"
+          },
+          {
+            "name": "total_requests",
+            "expr": "COUNT(*)",
+            "displayName": "Total HTTP Requests",
+            "comment": "Count of individual HTTP scoring requests (batches)"
+          },
+          {
+            "name": "error_rate_pct",
+            "expr": "100.0 * SUM(CASE WHEN status != 'success' THEN 1 ELSE 0 END) / COUNT(*)",
+            "displayName": "Error Rate (%)",
+            "comment": "Percentage of HTTP requests returning non-success status"
+          }
+        ]
+      }
+    },
+    {
+      "name": "model_predictions",
+      "displayName": "Model Predictions",
+      "config": {
+        "version": "1.1",
+        "source": "fraud_detection_dev.gold.model_predictions",
+        "dimensions": [
+          {
+            "name": "prediction_timestamp",
+            "expr": "prediction_timestamp"
+          },
+          {
+            "name": "is_fraud",
+            "expr": "is_fraud"
+          },
+          {
+            "name": "fraud_label",
+            "expr": "CASE WHEN is_fraud = 1 THEN 'Fraud' ELSE 'Legitimate' END"
+          },
+          {
+            "name": "probability_fraud",
+            "expr": "probability_fraud"
+          }
+        ],
+        "measures": [
+          {
+            "name": "total_predictions",
+            "expr": "COUNT(*)",
+            "displayName": "Total Predictions"
+          },
+          {
+            "name": "fraud_rate_pct",
+            "expr": "100.0 * AVG(is_fraud)",
+            "displayName": "Fraud Rate (%)"
+          },
+          {
+            "name": "mean_probability",
+            "expr": "AVG(probability_fraud)",
+            "displayName": "Mean Probability"
+          },
+          {
+            "name": "max_probability",
+            "expr": "MAX(probability_fraud)",
+            "displayName": "Max Probability"
+          }
+        ]
+      }
+    },
+    {
+      "name": "drift_comparison",
+      "displayName": "Drift Comparison",
+      "config": {
+        "version": "1.1",
+        "source": "SELECT 'Train' AS source, TransactionAmt, CAST(target AS BIGINT) AS is_fraud FROM fraud_detection_dev.gold.fraud_features WHERE split = 'train' UNION ALL SELECT 'Production' AS source, TransactionAmt, is_fraud FROM fraud_detection_dev.gold.model_predictions\n",
+        "dimensions": [
+          {
+            "name": "source",
+            "expr": "source"
+          },
+          {
+            "name": "TransactionAmt",
+            "expr": "TransactionAmt"
+          },
+          {
+            "name": "is_fraud",
+            "expr": "is_fraud"
+          }
+        ],
+        "measures": [
+          {
+            "name": "avg_transaction_amt",
+            "expr": "AVG(TransactionAmt)",
+            "displayName": "Avg Transaction Amount"
+          },
+          {
+            "name": "fraud_rate_pct",
+            "expr": "100.0 * AVG(is_fraud)",
+            "displayName": "Fraud Rate (%)"
+          },
+          {
+            "name": "total_records",
+            "expr": "COUNT(*)",
+            "displayName": "Total Records"
+          }
+        ]
+      }
+    },
+    {
+      "name": "prob_comparison",
+      "displayName": "Probability CDF (Production)",
+      "config": {
+        "version": "1.1",
+        "source": "WITH prod AS (\n  SELECT probability_fraud AS val\n  FROM fraud_detection_dev.gold.model_predictions WHERE probability_fraud IS NOT NULL\n), ranked AS (\n  SELECT val, ROW_NUMBER() OVER (ORDER BY val) AS rn, COUNT(*) OVER () AS n\n  FROM prod\n), binned AS (\n  SELECT ROUND(val, 3) AS prob_bin, MAX(rn * 1.0 / n) AS cdf\n  FROM ranked GROUP BY ROUND(val, 3)\n) SELECT 'Producao' AS source, prob_bin AS prob_value, cdf FROM binned\n",
+        "dimensions": [
+          {
+            "name": "source",
+            "expr": "source"
+          },
+          {
+            "name": "prob_value",
+            "expr": "prob_value"
+          }
+        ],
+        "measures": [
+          {
+            "name": "cdf",
+            "expr": "MAX(cdf)",
+            "displayName": "CDF"
+          }
+        ]
+      }
+    },
+    {
+      "name": "psi_variables",
+      "displayName": "PSI by Variable",
+      "config": {
+        "version": "1.1",
+        "source": "WITH train_unpivoted AS (\n  SELECT variable_name, value FROM (\n    SELECT TransactionAmt, C4, C5, D3, D4, D5, V3, V5, V7, dist1\n    FROM fraud_detection_dev.gold.fraud_features WHERE split = 'train'\n  ) UNPIVOT (value FOR variable_name IN (TransactionAmt, C4, C5, D3, D4, D5, V3, V5, V7, dist1))\n  WHERE value IS NOT NULL\n), prod_unpivoted AS (\n  SELECT variable_name, value FROM (\n    SELECT TransactionAmt, C4, C5, D3, D4, D5, V3, V5, V7, dist1\n    FROM fraud_detection_dev.gold.model_predictions\n  ) UNPIVOT (value FOR variable_name IN (TransactionAmt, C4, C5, D3, D4, D5, V3, V5, V7, dist1))\n  WHERE value IS NOT NULL\n), train_stats AS (\n  SELECT variable_name, MIN(value) AS min_val, MAX(value) AS max_val\n  FROM train_unpivoted GROUP BY variable_name\n), train_binned AS (\n  SELECT u.variable_name, WIDTH_BUCKET(u.value, s.min_val, s.max_val, 10) AS bin_num\n  FROM train_unpivoted u JOIN train_stats s ON u.variable_name = s.variable_name\n), prod_binned AS (\n  SELECT u.variable_name, WIDTH_BUCKET(u.value, s.min_val, s.max_val, 10) AS bin_num\n  FROM prod_unpivoted u JOIN train_stats s ON u.variable_name = s.variable_name\n), train_pct AS (\n  SELECT variable_name, bin_num, COUNT(*) * 1.0 / SUM(COUNT(*)) OVER (PARTITION BY variable_name) AS pct\n  FROM train_binned GROUP BY variable_name, bin_num\n), prod_pct AS (\n  SELECT variable_name, bin_num, COUNT(*) * 1.0 / SUM(COUNT(*)) OVER (PARTITION BY variable_name) AS pct\n  FROM prod_binned GROUP BY variable_name, bin_num\n) SELECT t.variable_name,\n  SUM((COALESCE(p.pct, 0.0001) - t.pct) * LN(COALESCE(p.pct, 0.0001) / NULLIF(t.pct, 0.0001))) AS psi_value,\n  CASE\n    WHEN SUM((COALESCE(p.pct, 0.0001) - t.pct) * LN(COALESCE(p.pct, 0.0001) / NULLIF(t.pct, 0.0001))) < 0.1 THEN 'Stable'\n    WHEN SUM((COALESCE(p.pct, 0.0001) - t.pct) * LN(COALESCE(p.pct, 0.0001) / NULLIF(t.pct, 0.0001))) < 0.25 THEN 'Warning'\n    ELSE 'Unstable'\n  END AS status\nFROM train_pct t LEFT JOIN prod_pct p ON t.variable_name = p.variable_name AND t.bin_num = p.bin_num GROUP BY t.variable_name\n",
+        "dimensions": [
+          {
+            "name": "variable_name",
+            "expr": "variable_name"
+          },
+          {
+            "name": "status",
+            "expr": "status"
+          }
+        ],
+        "measures": [
+          {
+            "name": "psi_value",
+            "expr": "MAX(psi_value)",
+            "displayName": "PSI Value"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ks_variables",
+      "displayName": "KS by Variable",
+      "config": {
+        "version": "1.1",
+        "source": "WITH train_unpivoted AS (\n  SELECT variable_name, value FROM (\n    SELECT TransactionAmt, C4, C5, D3, D4, D5, V3, V5, V7, dist1\n    FROM fraud_detection_dev.gold.fraud_features WHERE split = 'train'\n  ) UNPIVOT (value FOR variable_name IN (TransactionAmt, C4, C5, D3, D4, D5, V3, V5, V7, dist1))\n  WHERE value IS NOT NULL\n), prod_unpivoted AS (\n  SELECT variable_name, value FROM (\n    SELECT TransactionAmt, C4, C5, D3, D4, D5, V3, V5, V7, dist1\n    FROM fraud_detection_dev.gold.model_predictions\n  ) UNPIVOT (value FOR variable_name IN (TransactionAmt, C4, C5, D3, D4, D5, V3, V5, V7, dist1))\n  WHERE value IS NOT NULL\n), combined_stats AS (\n  SELECT variable_name, MIN(value) AS min_val, MAX(value) AS max_val\n  FROM (\n    SELECT variable_name, value FROM train_unpivoted\n    UNION ALL\n    SELECT variable_name, value FROM prod_unpivoted\n  ) combined GROUP BY variable_name\n), train_binned AS (\n  SELECT u.variable_name,\n    LEAST(GREATEST(WIDTH_BUCKET(u.value, s.min_val, s.max_val, 100), 1), 100) AS bin_num\n  FROM train_unpivoted u JOIN combined_stats s ON u.variable_name = s.variable_name\n), prod_binned AS (\n  SELECT u.variable_name,\n    LEAST(GREATEST(WIDTH_BUCKET(u.value, s.min_val, s.max_val, 100), 1), 100) AS bin_num\n  FROM prod_unpivoted u JOIN combined_stats s ON u.variable_name = s.variable_name\n), train_pct AS (\n  SELECT variable_name, bin_num,\n    COUNT(*) * 1.0 / SUM(COUNT(*)) OVER (PARTITION BY variable_name) AS pct\n  FROM train_binned GROUP BY variable_name, bin_num\n), prod_pct AS (\n  SELECT variable_name, bin_num,\n    COUNT(*) * 1.0 / SUM(COUNT(*)) OVER (PARTITION BY variable_name) AS pct\n  FROM prod_binned GROUP BY variable_name, bin_num\n), all_bins AS (\n  SELECT variable_name, bin_num\n  FROM (SELECT DISTINCT variable_name FROM train_unpivoted) v\n  CROSS JOIN (SELECT EXPLODE(SEQUENCE(1, 100, 1)) AS bin_num)\n), train_pct_filled AS (\n  SELECT a.variable_name, a.bin_num, COALESCE(t.pct, 0) AS pct\n  FROM all_bins a\n  LEFT JOIN train_pct t ON a.variable_name = t.variable_name AND a.bin_num = t.bin_num\n), prod_pct_filled AS (\n  SELECT a.variable_name, a.bin_num, COALESCE(p.pct, 0) AS pct\n  FROM all_bins a\n  LEFT JOIN prod_pct p ON a.variable_name = p.variable_name AND a.bin_num = p.bin_num\n), train_cum AS (\n  SELECT variable_name, bin_num,\n    SUM(pct) OVER (PARTITION BY variable_name ORDER BY bin_num) AS cum_cdf\n  FROM train_pct_filled\n), prod_cum AS (\n  SELECT variable_name, bin_num,\n    SUM(pct) OVER (PARTITION BY variable_name ORDER BY bin_num) AS cum_cdf\n  FROM prod_pct_filled\n) SELECT t.variable_name,\n  MAX(ABS(t.cum_cdf - p.cum_cdf)) AS ks_statistic,\n  CASE\n    WHEN MAX(ABS(t.cum_cdf - p.cum_cdf)) < 0.1 THEN 'Stable'\n    WHEN MAX(ABS(t.cum_cdf - p.cum_cdf)) < 0.2 THEN 'Warning'\n    ELSE 'Unstable'\n  END AS status\nFROM train_cum t JOIN prod_cum p ON t.variable_name = p.variable_name AND t.bin_num = p.bin_num GROUP BY t.variable_name\n",
+        "dimensions": [
+          {
+            "name": "variable_name",
+            "expr": "variable_name"
+          },
+          {
+            "name": "status",
+            "expr": "status"
+          }
+        ],
+        "measures": [
+          {
+            "name": "ks_statistic",
+            "expr": "MAX(ks_statistic)",
+            "displayName": "KS Statistic"
+          }
+        ]
+      }
+    },
+    {
+      "name": "drift_table",
+      "displayName": "PSI & KS por Variavel",
+      "config": {
+        "version": "1.1",
+        "source": "WITH train_unpivoted AS (\n  SELECT variable_name, value FROM (\n    SELECT TransactionAmt, C4, C5, D3, D4, D5, V3, V5, V7, dist1\n    FROM fraud_detection_dev.gold.fraud_features WHERE split = 'train'\n  ) UNPIVOT (value FOR variable_name IN (TransactionAmt, C4, C5, D3, D4, D5, V3, V5, V7, dist1))\n  WHERE value IS NOT NULL\n), prod_unpivoted AS (\n  SELECT variable_name, value FROM (\n    SELECT TransactionAmt, C4, C5, D3, D4, D5, V3, V5, V7, dist1\n    FROM fraud_detection_dev.gold.model_predictions\n  ) UNPIVOT (value FOR variable_name IN (TransactionAmt, C4, C5, D3, D4, D5, V3, V5, V7, dist1))\n  WHERE value IS NOT NULL\n), train_stats AS (\n  SELECT variable_name, MIN(value) AS min_val, MAX(value) AS max_val\n  FROM train_unpivoted GROUP BY variable_name\n), train_binned AS (\n  SELECT u.variable_name,\n    LEAST(GREATEST(WIDTH_BUCKET(u.value, s.min_val, s.max_val, 10), 1), 10) AS bin_num\n  FROM train_unpivoted u JOIN train_stats s ON u.variable_name = s.variable_name\n), prod_binned AS (\n  SELECT u.variable_name,\n    LEAST(GREATEST(WIDTH_BUCKET(u.value, s.min_val, s.max_val, 10), 1), 10) AS bin_num\n  FROM prod_unpivoted u JOIN train_stats s ON u.variable_name = s.variable_name\n), train_pct AS (\n  SELECT variable_name, bin_num,\n    COUNT(*) * 1.0 / SUM(COUNT(*)) OVER (PARTITION BY variable_name) AS pct\n  FROM train_binned GROUP BY variable_name, bin_num\n), prod_pct AS (\n  SELECT variable_name, bin_num,\n    COUNT(*) * 1.0 / SUM(COUNT(*)) OVER (PARTITION BY variable_name) AS pct\n  FROM prod_binned GROUP BY variable_name, bin_num\n), all_bins AS (\n  SELECT variable_name, bin_num\n  FROM (SELECT DISTINCT variable_name FROM train_unpivoted) v\n  CROSS JOIN (SELECT EXPLODE(SEQUENCE(1, 10, 1)) AS bin_num)\n), train_pct_filled AS (\n  SELECT a.variable_name, a.bin_num, COALESCE(t.pct, 0) AS pct\n  FROM all_bins a LEFT JOIN train_pct t ON a.variable_name = t.variable_name AND a.bin_num = t.bin_num\n), prod_pct_filled AS (\n  SELECT a.variable_name, a.bin_num, COALESCE(p.pct, 0) AS pct\n  FROM all_bins a LEFT JOIN prod_pct p ON a.variable_name = p.variable_name AND a.bin_num = p.bin_num\n), train_cum AS (\n  SELECT variable_name, bin_num,\n    SUM(pct) OVER (PARTITION BY variable_name ORDER BY bin_num) AS cum_cdf\n  FROM train_pct_filled\n), prod_cum AS (\n  SELECT variable_name, bin_num,\n    SUM(pct) OVER (PARTITION BY variable_name ORDER BY bin_num) AS cum_cdf\n  FROM prod_pct_filled\n), psi_calc AS (\n  SELECT t.variable_name,\n    SUM((COALESCE(p.pct, 0.0001) - t.pct) * LN(COALESCE(p.pct, 0.0001) / NULLIF(t.pct, 0))) AS psi_value\n  FROM train_pct_filled t\n  LEFT JOIN prod_pct_filled p ON t.variable_name = p.variable_name AND t.bin_num = p.bin_num\n  GROUP BY t.variable_name\n), ks_calc AS (\n  SELECT t.variable_name,\n    MAX(ABS(t.cum_cdf - p.cum_cdf)) AS ks_statistic\n  FROM train_cum t JOIN prod_cum p ON t.variable_name = p.variable_name AND t.bin_num = p.bin_num\n  GROUP BY t.variable_name\n) SELECT\n  COALESCE(p.variable_name, k.variable_name) AS variable_name,\n  p.psi_value,\n  CASE\n    WHEN p.psi_value < 0.1 THEN 'Stable'\n    WHEN p.psi_value < 0.25 THEN 'Warning'\n    ELSE 'Unstable'\n  END AS psi_status,\n  k.ks_statistic,\n  CASE\n    WHEN k.ks_statistic < 0.1 THEN 'Stable'\n    WHEN k.ks_statistic < 0.2 THEN 'Warning'\n    ELSE 'Unstable'\n  END AS ks_status\nFROM psi_calc p FULL OUTER JOIN ks_calc k ON p.variable_name = k.variable_name ORDER BY p.psi_value DESC, k.ks_statistic DESC\n",
+        "dimensions": [
+          {
+            "name": "variable_name",
+            "expr": "variable_name"
+          },
+          {
+            "name": "psi_status",
+            "expr": "psi_status"
+          },
+          {
+            "name": "ks_status",
+            "expr": "ks_status"
+          }
+        ],
+        "measures": [
+          {
+            "name": "psi_value",
+            "expr": "MAX(psi_value)",
+            "displayName": "PSI"
+          },
+          {
+            "name": "ks_statistic",
+            "expr": "MAX(ks_statistic)",
+            "displayName": "KS"
+          }
+        ]
+      }
+    }
+  ],
+  "pages": [
+    {
+      "name": "b18b2b6c",
+      "displayName": "Page 1",
+      "layout": [
+        {
+          "widget": {
+            "name": "header",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Fraud Detection  MLOps Monitoring\n",
+                "\n",
+                "**Modelo:** XGBoost | **Versao Champion:** v13 | **Threshold:** 0.83 | **PR-AUC:** 0.5047 | **F1:** 0.4832 | **Status:** Em Producao"
+              ]
+            },
+            "specExtensions": {
+              "widgetBackgroundColor": {
+                "light": "#1a1a2e",
+                "dark": "#1a1a2e"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "sec1_title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## KPIs do Modelo em Producao"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "total_preds",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "model_predictions",
+                  "fields": [
+                    {
+                      "name": "measure(total_predictions)",
+                      "expression": "MEASURE(`total_predictions`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Total de Predicoes",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(total_predictions)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "fraud_rate_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "model_predictions",
+                  "fields": [
+                    {
+                      "name": "measure(fraud_rate_pct)",
+                      "expression": "MEASURE(`fraud_rate_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Taxa de Fraude (%)"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(fraud_rate_pct)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 3,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "mean_prob_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "model_predictions",
+                  "fields": [
+                    {
+                      "name": "measure(mean_probability)",
+                      "expression": "MEASURE(`mean_probability`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Probabilidade Media"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(mean_probability)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 3,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "max_prob_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "model_predictions",
+                  "fields": [
+                    {
+                      "name": "measure(max_probability)",
+                      "expression": "MEASURE(`max_probability`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Probabilidade Maxima"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(max_probability)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 3,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "prob_dist_hist",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "prob_comparison",
+                  "fields": [
+                    {
+                      "name": "source",
+                      "expression": "`source`"
+                    },
+                    {
+                      "name": "prob_value",
+                      "expression": "`prob_value`"
+                    },
+                    {
+                      "name": "measure(cdf)",
+                      "expression": "MEASURE(`cdf`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "CDF da Probabilidade de Fraude (Producao)"
+              },
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "prob_value",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(cdf)",
+                  "displayName": "CDF",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "source",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 6,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "fraud_vs_legit_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "model_predictions",
+                  "fields": [
+                    {
+                      "name": "fraud_label",
+                      "expression": "`fraud_label`"
+                    },
+                    {
+                      "name": "measure(total_predictions)",
+                      "expression": "MEASURE(`total_predictions`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Fraude vs Legitimo"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "fraud_label",
+                  "displayName": "fraud_label",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(total_predictions)",
+                  "displayName": "total_predictions",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "fraud_label",
+                  "displayName": "fraud_label",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 5,
+            "width": 6,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "sec2_title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Observabilidade do Endpoint — Latencia por Requisicao HTTP"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "avg_latency_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "monitoring_events",
+                  "fields": [
+                    {
+                      "name": "measure(avg_latency_ms)",
+                      "expression": "MEASURE(`avg_latency_ms`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Latencia Media/Requisicao (ms)"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(avg_latency_ms)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "p50_latency_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "monitoring_events",
+                  "fields": [
+                    {
+                      "name": "measure(p50_latency_ms)",
+                      "expression": "MEASURE(`p50_latency_ms`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Latencia P50 (ms)"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(p50_latency_ms)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 10,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "p95_latency_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "monitoring_events",
+                  "fields": [
+                    {
+                      "name": "measure(p95_latency_ms)",
+                      "expression": "MEASURE(`p95_latency_ms`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Latencia P95 (ms)"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(p95_latency_ms)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 10,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "p99_latency_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "monitoring_events",
+                  "fields": [
+                    {
+                      "name": "measure(p99_latency_ms)",
+                      "expression": "MEASURE(`p99_latency_ms`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Latencia P99 (ms)"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(p99_latency_ms)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 10,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "total_batches_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "monitoring_events",
+                  "fields": [
+                    {
+                      "name": "measure(total_predictions)",
+                      "expression": "MEASURE(`total_predictions`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Total de Predicoes (Endpoint)"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(total_predictions)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 12,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "error_rate_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "monitoring_events",
+                  "fields": [
+                    {
+                      "name": "measure(error_rate_pct)",
+                      "expression": "MEASURE(`error_rate_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Taxa de Erro (%)"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(error_rate_pct)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 12,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "latency_line",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "monitoring_events",
+                  "fields": [
+                    {
+                      "name": "event_timestamp",
+                      "expression": "`event_timestamp`"
+                    },
+                    {
+                      "name": "measure(avg_latency_ms)",
+                      "expression": "MEASURE(`avg_latency_ms`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Latencia ao Longo do Tempo"
+              },
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "event_timestamp",
+                  "displayName": "event_timestamp",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(avg_latency_ms)",
+                  "displayName": "avg_latency_ms",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 18,
+            "width": 8,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "status_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "monitoring_events",
+                  "fields": [
+                    {
+                      "name": "status",
+                      "expression": "`status`"
+                    },
+                    {
+                      "name": "measure(total_requests)",
+                      "expression": "MEASURE(`total_requests`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Distribuicao por Status",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "status",
+                  "displayName": "status",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(total_requests)",
+                  "displayName": "total_requests",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "status",
+                  "displayName": "status",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 18,
+            "width": 4,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "sec3_title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## PSI & KS  Drift Detection"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 22,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "sec4_title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Comparacao de Data Drift"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 27,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "txnamt_hist",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "drift_comparison",
+                  "fields": [
+                    {
+                      "name": "source",
+                      "expression": "`source`"
+                    },
+                    {
+                      "name": "TransactionAmt",
+                      "expression": "`TransactionAmt`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Distribuicao TransactionAmt (Treino vs Producao)"
+              },
+              "version": 3,
+              "widgetType": "histogram",
+              "encodings": {
+                "x": {
+                  "fieldName": "TransactionAmt",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "source",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 28,
+            "width": 4,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "txnamt_avg_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "drift_comparison",
+                  "fields": [
+                    {
+                      "name": "source",
+                      "expression": "`source`"
+                    },
+                    {
+                      "name": "measure(avg_transaction_amt)",
+                      "expression": "MEASURE(`avg_transaction_amt`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "TransactionAmt Medio: Treino vs Producao"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "source",
+                  "displayName": "source",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(avg_transaction_amt)",
+                  "displayName": "avg_transaction_amt",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "source",
+                  "displayName": "source",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 28,
+            "width": 4,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "fraud_rate_comp_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "drift_comparison",
+                  "fields": [
+                    {
+                      "name": "source",
+                      "expression": "`source`"
+                    },
+                    {
+                      "name": "measure(fraud_rate_pct)",
+                      "expression": "MEASURE(`fraud_rate_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Taxa de Fraude: Treino vs Producao"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "source",
+                  "displayName": "source",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(fraud_rate_pct)",
+                  "displayName": "fraud_rate_pct",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "source",
+                  "displayName": "source",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 28,
+            "width": 4,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "preds_line",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "model_predictions",
+                  "fields": [
+                    {
+                      "name": "daily(prediction_timestamp)",
+                      "expression": "DATE_TRUNC(\"DAY\", `prediction_timestamp`)"
+                    },
+                    {
+                      "name": "measure(total_predictions)",
+                      "expression": "MEASURE(`total_predictions`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Predicoes ao Longo do Tempo"
+              },
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "daily(prediction_timestamp)",
+                  "displayName": "Day",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(total_predictions)",
+                  "displayName": "total_predictions",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 32,
+            "width": 12,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "drift_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "drift_table",
+                  "fields": [
+                    {
+                      "name": "variable_name",
+                      "expression": "`variable_name`"
+                    },
+                    {
+                      "name": "measure(psi_value)",
+                      "expression": "MEASURE(`psi_value`)"
+                    },
+                    {
+                      "name": "psi_status",
+                      "expression": "`psi_status`"
+                    },
+                    {
+                      "name": "measure(ks_statistic)",
+                      "expression": "MEASURE(`ks_statistic`)"
+                    },
+                    {
+                      "name": "ks_status",
+                      "expression": "`ks_status`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "PSI &amp; KS por Variavel",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "variable_name",
+                    "headerAlignment": "left",
+                    "useForSearch": true
+                  },
+                  {
+                    "fieldName": "measure(psi_value)",
+                    "headerAlignment": "right",
+                    "useForSearch": false
+                  },
+                  {
+                    "fieldName": "psi_status",
+                    "headerAlignment": "center",
+                    "useForSearch": true
+                  },
+                  {
+                    "fieldName": "measure(ks_statistic)",
+                    "headerAlignment": "right",
+                    "useForSearch": false
+                  },
+                  {
+                    "fieldName": "ks_status",
+                    "headerAlignment": "center",
+                    "useForSearch": true
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 23,
+            "width": 12,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "avg_latency_per_record_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "monitoring_events",
+                  "fields": [
+                    {
+                      "name": "measure(avg_latency_per_record_ms)",
+                      "expression": "MEASURE(`avg_latency_per_record_ms`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Latencia por Predicao (ms)"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(avg_latency_per_record_ms)",
+                  "rowNumber": 0
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 12,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "cold_warm_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "monitoring_events",
+                  "fields": [
+                    {
+                      "name": "start_type",
+                      "expression": "`start_type`"
+                    },
+                    {
+                      "name": "measure(avg_latency_ms)",
+                      "expression": "MEASURE(`avg_latency_ms`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Latencia: Cold vs Warm Start"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "start_type",
+                  "displayName": "Start Type",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(avg_latency_ms)",
+                  "displayName": "Avg Latency (ms)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "start_type",
+                  "displayName": "Start Type",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 14,
+            "width": 12,
+            "height": 4
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}
