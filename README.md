@@ -1,6 +1,16 @@
 # Pipeline ML de Detecção de Fraude
 
-Pipeline de machine learning para detectar transações fraudulentas no Databricks com Feature Store, serving em tempo real, monitoramento MLOps e pipeline de retreino Champion/Challenger (planejado).
+Pipeline de machine learning para detectar transações fraudulentas no Databricks com Feature Store, serving em tempo real, monitoramento MLOps e pipeline de retreino Champion/Challenger.
+
+## CI/CD
+
+O projeto usa GitHub Actions para CI/CD com 3 branches:
+
+- **`dev`** — desenvolvimento ativo (CI: lint + testes + bundle validate)
+- **`staging`** — homologacao (CI + CD deploy para hml)
+- **`main`** — producao (CI + CD deploy para prod)
+
+Retreino agendado automaticamente todo dia 10 de cada mes.
 
 ## Quick Start
 
