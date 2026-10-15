@@ -1,14 +1,14 @@
-import pandas as pd
+from unittest.mock import MagicMock, patch
+
 import numpy as np
-from unittest.mock import patch, MagicMock
+import pandas as pd
 
 from databricks_fraud_model.model.scoring import (
-    _clean_records,
-    score_batch,
-    save_to_bronze,
     ENDPOINT_NAME,
+    _clean_records,
+    save_to_bronze,
+    score_batch,
 )
-from databricks_fraud_model.features import MODEL_FEATURES
 
 
 def test_clean_records_selects_features(sample_df):

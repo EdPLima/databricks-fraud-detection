@@ -1,10 +1,10 @@
 from databricks_fraud_model.features import (
-    MODEL_FEATURES,
     FEATURES_DROP,
+    FREE_DOMAINS,
+    MODEL_FEATURES,
     MODEL_KEEP,
     REMOVED_QUALITY,
     REMOVED_REDUNDANCY,
-    FREE_DOMAINS,
     apply_feature_engineering_spark,
 )
 

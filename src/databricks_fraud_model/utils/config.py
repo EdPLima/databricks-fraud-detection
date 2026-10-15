@@ -12,8 +12,9 @@ Uso nos notebooks:
     FEATURE_STORE_TABLE = cfg["feature_store"]["table"]
 """
 
-import yaml
 import os
+
+import yaml
 
 # Caminho do arquivo de configuracao (relativo a raiz do projeto)
 # utils/config.py -> utils/ -> databricks_fraud_model/ -> src/ -> project_root

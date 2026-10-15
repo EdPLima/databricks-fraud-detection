@@ -1,4 +1,4 @@
-from databricks_fraud_model.utils import load_config, get
+from databricks_fraud_model.utils import get, load_config
 
 
 def test_load_config_returns_dict():

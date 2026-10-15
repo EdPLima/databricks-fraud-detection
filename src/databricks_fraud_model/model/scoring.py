@@ -9,9 +9,11 @@ Funcoes:
 """
 
 import time
-import pandas as pd
 from datetime import datetime, timezone
+
+import pandas as pd
 from databricks.sdk import WorkspaceClient
+
 from databricks_fraud_model.features import MODEL_FEATURES
 from databricks_fraud_model.utils import load_config
 

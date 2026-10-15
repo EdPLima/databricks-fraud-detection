@@ -1,8 +1,7 @@
-import pandas as pd
 import pytest
 from databricks.sdk import WorkspaceClient
 
-from databricks_fraud_model import score_batch, save_predictions
+from databricks_fraud_model import save_predictions, score_batch
 from databricks_fraud_model.features import MODEL_FEATURES
 from databricks_fraud_model.utils import load_config
 

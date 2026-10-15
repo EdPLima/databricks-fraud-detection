@@ -1,6 +1,7 @@
 import pytest
-from databricks_fraud_model.utils import load_config
+
 from databricks_fraud_model.features import MODEL_FEATURES
+from databricks_fraud_model.utils import load_config
 
 pytestmark = pytest.mark.integration
 

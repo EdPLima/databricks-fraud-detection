@@ -7,7 +7,8 @@ em PySpark usadas por ambos os notebooks Gold:
   - pipeline/gold/feature_engineering_predict (predicao)
 """
 
-from pyspark.sql import functions as F, Window
+from pyspark.sql import Window
+from pyspark.sql import functions as F
 
 # ============================================================================
 # Feature Selection — listas hardcoded do pipeline de experimentacao
