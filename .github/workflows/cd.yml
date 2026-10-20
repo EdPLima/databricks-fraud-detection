@@ -1,57 +1,149 @@
-name: CD - Deploy
 
-on:
+name: CD - Databricks Deployment
+
+# Executa automaticamente em HML/PROD ou manualmente em DEV/HML/PROD.
+"on":
   push:
-    branches: [staging, main]
+    branches:
+      - staging
+      - main
+
   workflow_dispatch:
     inputs:
       target:
-        description: "Deployment target"
+        description: "Ambiente de deployment"
         required: true
         type: choice
-        options: [dev, hml, prod]
+        options:
+          - dev
+          - hml
+          - prod
 
 permissions:
   contents: read
 
+# Evita deployments simultâneos para o mesmo ambiente.
+concurrency:
+  group: cd-${{ github.event_name == 'workflow_dispatch' && inputs.target || (github.ref_name == 'main' && 'prod' || 'hml') }}
+  cancel-in-progress: false
+
 jobs:
-  deploy:
-    name: Deploy to ${{ github.ref_name == 'main' && 'prod' || github.ref_name == 'staging' && 'hml' || inputs.target }}
+
+  # ==========================================================
+  # 1. VALIDAÇÃO ANTES DO DEPLOYMENT
+  # ==========================================================
+
+  verify:
+    name: Verify Before Deployment
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name == 'staging' && 'hml' || inputs.target }}
+
+    # Disponibiliza o target para outros Jobs via needs.verify.outputs.
+    outputs:
+      target: ${{ steps.target.outputs.target }}
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine and validate target
+        id: target
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BRANCH: ${{ github.ref_name }}
+          INPUT_TARGET: ${{ inputs.target }}
+        run: |
+          # Define o ambiente conforme o evento que iniciou o workflow.
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            TARGET="$INPUT_TARGET"
+          elif [[ "$BRANCH" == "main" ]]; then
+            TARGET="prod"
+          elif [[ "$BRANCH" == "staging" ]]; then
+            TARGET="hml"
+          else
+            echo "Branch não autorizada."
+            exit 1
+          fi
+
+          # Impede publicar uma branch em um ambiente incorreto.
+          if [[ "$TARGET" == "dev" && "$BRANCH" == "dev" ]] ||
+             [[ "$TARGET" == "hml" && "$BRANCH" == "staging" ]] ||
+             [[ "$TARGET" == "prod" && "$BRANCH" == "main" ]]; then
+            echo "Deployment autorizado: $BRANCH -> $TARGET"
+          else
+            echo "Deployment bloqueado: $BRANCH -> $TARGET"
+            exit 1
+          fi
+
+          # Compartilha o target com os próximos steps e Jobs.
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+          python -m pip install "ruff>=0.1.0"
+
+      # Verifica qualidade estática do código Python.
+      - name: Run Ruff
+        run: ruff check src/ tests/
+
+      # Executa testes unitários antes de autorizar a publicação.
+      - name: Run unit tests
+        run: |
+          python -m pytest tests/unit/ \
+            -v --tb=short -m "not integration"
 
       - name: Install Databricks CLI
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+        uses: databricks/setup-cli@main
 
-      - name: Determine target
-        id: target
+      # Verifica a configuração do Bundle sem publicar recursos.
+      - name: Validate Databricks Bundle
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          TARGET: ${{ steps.target.outputs.target }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "target=${{ inputs.target }}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref_name }}" = "main" ]; then
-            echo "target=prod" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref_name }}" = "staging" ]; then
-            echo "target=hml" >> $GITHUB_OUTPUT
-          else
-            echo "target=dev" >> $GITHUB_OUTPUT
+          if [[ -z "$DATABRICKS_HOST" || -z "$DATABRICKS_TOKEN" ]]; then
+            echo "Credenciais Databricks não configuradas."
+            exit 1
           fi
 
-      - name: Validate bundle
-        env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-        run: databricks bundle validate -t ${{ steps.target.outputs.target }}
+          databricks bundle validate -t "$TARGET"
 
-      - name: Deploy bundle
+  # ==========================================================
+  # 2. PUBLICAÇÃO NO DATABRICKS
+  # ==========================================================
+
+  deploy:
+    name: Deploy Databricks Bundle
+    runs-on: ubuntu-latest
+
+    # O deployment só começa após todas as validações.
+    needs: verify
+
+    # Permite aplicar regras de aprovação ao ambiente prod.
+    environment:
+      name: ${{ needs.verify.outputs.target }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      # Publica os recursos do Bundle no target validado.
+      # O deploy não executa automaticamente os notebooks.
+      - name: Deploy Databricks Bundle
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-        run: databricks bundle deploy -t ${{ steps.target.outputs.target }}
+          TARGET: ${{ needs.verify.outputs.target }}
+        run: |
+          databricks bundle deploy -t "$TARGET"
+          echo "Deployment concluído: $TARGET"

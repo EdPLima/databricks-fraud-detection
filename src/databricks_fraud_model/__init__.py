@@ -7,15 +7,19 @@ Exports:
 - FEATURES_DROP, MODEL_KEEP: listas de feature selection
 - score_batch, score_single, save_predictions: scoring via REST endpoint
 - load_model: carrega pyfunc do Unity Catalog
+- clean_silver_data: limpeza Silver (dedup, join, padronizacao)
+- calculate_ks_drift, calculate_psi, calculate_prediction_drift: drift detection
+- calculate_latency_metrics, summarize_endpoint_health: observabilidade
 """
 
+from databricks_fraud_model.data import clean_silver_data
 from databricks_fraud_model.features import (
-    FEATURES_DROP,
+    FEATURE_CONTRACT_HASH,
+    FEATURE_CONTRACT_VERSION,
+    FREE_DOMAINS,
     MODEL_FEATURES,
-    MODEL_KEEP,
-    REMOVED_QUALITY,
-    REMOVED_REDUNDANCY,
     apply_feature_engineering_spark,
+    validate_features,
 )
 from databricks_fraud_model.model.load import load_model
 from databricks_fraud_model.model.scoring import (
@@ -24,17 +28,41 @@ from databricks_fraud_model.model.scoring import (
     score_batch,
     score_single,
 )
+from databricks_fraud_model.monitoring import (
+    calculate_categorical_drift,
+    calculate_error_rate,
+    calculate_ks_drift,
+    calculate_latency_metrics,
+    calculate_prediction_drift,
+    calculate_psi,
+    detect_cold_starts,
+    summarize_endpoint_health,
+)
 
 __all__ = [
+    # Features
     "MODEL_FEATURES",
+    "FEATURE_CONTRACT_VERSION",
+    "FEATURE_CONTRACT_HASH",
+    "validate_features",
     "apply_feature_engineering_spark",
-    "FEATURES_DROP",
-    "MODEL_KEEP",
-    "REMOVED_QUALITY",
-    "REMOVED_REDUNDANCY",
+    "FREE_DOMAINS",
+    # Model
     "score_batch",
     "score_single",
     "save_predictions",
     "save_to_bronze",
     "load_model",
+    # Data (Silver cleaning)
+    "clean_silver_data",
+    # Monitoring (drift)
+    "calculate_ks_drift",
+    "calculate_psi",
+    "calculate_categorical_drift",
+    "calculate_prediction_drift",
+    # Monitoring (observability)
+    "calculate_latency_metrics",
+    "calculate_error_rate",
+    "detect_cold_starts",
+    "summarize_endpoint_health",
 ]

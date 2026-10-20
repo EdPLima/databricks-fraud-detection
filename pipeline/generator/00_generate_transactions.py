@@ -1,0 +1,12 @@
+BATCH_TYPE = "prod"
+N_TRANSACTIONS = 10000
+FRAUD_RATE = 0.035
+SEED = 42
+
+RAW_VOLUME = "/Volumes/workspace/bronze/raw"
+REFERENCE_TRANSACTION = f"{RAW_VOLUME}/train_transaction.csv"
+REFERENCE_IDENTITY = f"{RAW_VOLUME}/train_identity.csv"
+
+OUTPUT_DIR = RAW_VOLUME
+ID_START = 9000000
+DT_START = 16000000

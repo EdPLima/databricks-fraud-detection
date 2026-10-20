@@ -26,7 +26,7 @@ experiments:
 ## Model Registry
 
 * **Catalogo/Schema**: `fraud_detection_dev.models`
-* **Modelo**: `fraud_detection_dev.models.xgboost_fraud_model`
+* **Modelo**: `fraud_detection_dev.models.lgbm_fraud_model`
 * **Alias**: `@champion`
 * **Formato**: pyfunc com FeatureLookup
 * **Tags por versao**: `algorithm`, `model_type`, `serving_mode`, `serving_table`, `sklearn_version`, `xgboost_version`
@@ -133,7 +133,7 @@ feature_store:
   split_methodology: temporal
 
 model:
-  registered_name: fraud_detection_dev.models.xgboost_fraud_model
+  registered_name: fraud_detection_dev.models.lgbm_fraud_model
   optimal_threshold: 0.83
 
 preprocessing:

@@ -1,40 +1,93 @@
+
+# ============================================================
+# 1. IDENTIFICAÇÃO DO PROJETO
+# ============================================================
+
 bundle:
+  # Nome lógico do projeto no Databricks.
   name: databricks-fraud-detection
 
+
+# ============================================================
+# 2. ARQUIVOS DE RECURSOS
+# ============================================================
+
 include:
+  # Carrega as definições dos Jobs.
   - resources/jobs/*.yml
+
+  # Carrega alertas, caso existam arquivos nesse diretório.
+  # - resources/alerts/*.yml
+
+
+# ============================================================
+# 3. VARIÁVEIS REUTILIZÁVEIS
+# ============================================================
 
 variables:
   catalog:
-    default: fraud_detection_dev
-  schema:
-    default: gold
+    # Cada target define o catálogo correspondente.
+    description: "Catálogo Unity Catalog do ambiente"
+
   batch_type:
+    # Valor padrão; pode ser sobrescrito no deploy.
+    description: "Tipo de lote: train ou prd"
     default: train
 
+
+# ============================================================
+# 4. TARGETS DE DEPLOYMENT
+# ============================================================
+
 targets:
+
+  # ----------------------------------------------------------
+  # DESENVOLVIMENTO
+  # ----------------------------------------------------------
   dev:
+    # Target utilizado quando nenhum outro é informado.
     default: true
+
+    # Configurações próprias de desenvolvimento.
     mode: development
+
+    # Pasta exclusiva para os arquivos publicados em DEV.
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/dev
+
     variables:
+      # Isola as tabelas de desenvolvimento.
       catalog: fraud_detection_dev
-      schema: gold
+
+      # Mantém o comportamento atual do seu projeto.
       batch_type: train
 
+
+  # ----------------------------------------------------------
+  # HOMOLOGAÇÃO
+  # ----------------------------------------------------------
   hml:
+    # Produção aqui significa modo de deployment,
+    # não que o target utilize dados reais de produção.
     mode: production
+
     workspace:
-      root_path: /Workspace/Users/eduardolimaofficial410@gmail.com/.bundle/${bundle.name}/hml
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/hml
+
     variables:
       catalog: fraud_detection_hml
-      schema: gold
-      batch_type: prod
+      batch_type: prd
 
+
+  # ----------------------------------------------------------
+  # PRODUÇÃO
+  # ----------------------------------------------------------
   prod:
     mode: production
+
     workspace:
-      root_path: /Workspace/Users/eduardolimaofficial410@gmail.com/.bundle/${bundle.name}/prod
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/prod
+
     variables:
       catalog: fraud_detection_prod
-      schema: gold
-      batch_type: prod
+      batch_type: prd

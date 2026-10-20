@@ -1,28 +1,88 @@
+# ============================================================
+# 1. RECURSOS DO DATABRICKS
+# ============================================================
+
 resources:
   jobs:
+
+    # Identificador interno do Job no Asset Bundle.
     etl_pipeline:
-      name: "ETL Pipeline: Bronze → Silver → Gold"
-      description: "Pipeline de carga escalavel: ingere dados brutos, limpa na silver e aplica feature engineering na gold."
+
+      # Nome apresentado na interface do Databricks.
+      name: "Fraud Detection - ETL Pipeline"
+
+      description: "Processamento Bronze, Silver e Gold."
+
+      # Limita execuções simultâneas do mesmo Job.
+      # Ajuda a evitar concorrência entre lotes.
+      max_concurrent_runs: 1
+
+      # ======================================================
+      # 2. PARÂMETROS DO JOB
+      # ======================================================
+
+      parameters:
+
+        - name: catalog
+          # Recebe o catálogo configurado no target.
+          default: ${var.catalog}
+
+        - name: batch_type
+          # Valor padrão, que pode ser substituído ao rodar.
+          default: ${var.batch_type}
+
+      # ======================================================
+      # 3. TAREFAS DO PIPELINE
+      # ======================================================
+
       tasks:
+
+        # ----------------------------------------------------
+        # BRONZE: INGESTÃO
+        # ----------------------------------------------------
         - task_key: bronze_ingest
+
           notebook_task:
             notebook_path: ../../pipeline/bronze/01_bronze_ingest.py
+
             base_parameters:
-              batch_type: prd
+              catalog: "{{job.parameters.catalog}}"
+              batch_type: "{{job.parameters.batch_type}}"
+
+        # ----------------------------------------------------
+        # SILVER: LIMPEZA E INTEGRAÇÃO
+        # ----------------------------------------------------
         - task_key: silver_clean
+
           depends_on:
             - task_key: bronze_ingest
+
           notebook_task:
-            notebook_path: ../../pipeline/silver/02_silver_clean.ipynb
+            notebook_path: ../../pipeline/silver/02_silver_clean.py
+
             base_parameters:
-              batch_type: prd
+              catalog: "{{job.parameters.catalog}}"
+              batch_type: "{{job.parameters.batch_type}}"
+
+        # ----------------------------------------------------
+        # GOLD: FEATURE ENGINEERING
+        # ----------------------------------------------------
         - task_key: gold_feature_engineering
+
           depends_on:
             - task_key: silver_clean
+
           notebook_task:
-            notebook_path: ../../pipeline/gold/03_gold_feature_engineering.ipynb
+            notebook_path: ../../pipeline/gold/03_gold_fe.py
+
             base_parameters:
-              batch_type: prd
+              catalog: "{{job.parameters.catalog}}"
+              batch_type: "{{job.parameters.batch_type}}"
+
+      # ======================================================
+      # 4. IDENTIFICAÇÃO DO RECURSO
+      # ======================================================
+
       tags:
         layer: etl
         project: fraud-detection

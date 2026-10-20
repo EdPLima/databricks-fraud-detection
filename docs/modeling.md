@@ -18,14 +18,14 @@ Class weight aplicado: `weight_fraud = 1 / fraud_ratio`, `weight_legit = 1 / (1 
 
 4 modelos comparados no walk-forward CV. Experimento: [selection_model_timeseries_split](https://dbc-6181e49f-87e5.cloud.databricks.com/ml/experiments/4081575290465878).
 
-| Modelo | PR-AUC (mean) | ROC-AUC (mean) | F1 (mean) | KS (mean) |
-|---|---|---|---|---|
-| **XGBoost** | **0.4856** | **0.8803** | **0.3116** | **0.6055** |
-| LightGBM | 0.4698 | 0.8760 | 0.3126 | 0.6011 |
-| LogisticRegression | 0.3450 | 0.8342 | 0.2167 | 0.5238 |
-| RandomForest | 0.3127 | 0.8269 | 0.2110 | 0.5035 |
-
-XGBoost selecionado por PR-AUC superior. PR-AUC e a metrica prioritaria por ser robusta em classes desbalanceadas (3,5% de fraudes).
+21: | Modelo        | PR-AUC | ROC-AUC | F1   | Precision | Recall | KS    | Brier Score |
+22: |--------------|--------|---------|------|-----------|--------|-------|-------------|
+23: | LightGBM     | 0.5043 | 0.8858  | 0.3797 | 0.8606   | 0.2435 | 0.6171 | 0.0269      |
+24: | XGBoost      | 0.5009 | 0.8854  | 0.3862 | 0.8516   | 0.2497 | 0.6163 | 0.0268      |
+25: | LogisticRegression | 0.3102 | 0.8326 | 0.1917 | 0.8121 | 0.1917 | 0.5129 | 0.0302 |
+26: | RandomForest | 0.2159 | 0.8345 | 0.1231 | 0.8782 | 0.1231 | 0.5006 | 0.0311 |
+27: 
+28: LightGBM e XGBoost apresentaram resultados próximos, mas LightGBM foi escolhido para produção pela eficiência computacional, escalabilidade e resultados equivalentes. PR-AUC é a métrica prioritária por ser robusta em classes desbalanceadas.
 
 ### Configuracao XGBoost (baseline)
 
@@ -96,21 +96,22 @@ Top 20% dos scores capturam aproximadamente 70% das fraudes (lift ~3.5x vs aleat
 
 ### Feature Importance
 
-XGBoost feature importance (gain). Top features:
-* Variaveis V com alto IV (V258, V257, V265)
-* `card1_amt_mean` / `card1_amt_std` (agregacoes por cartao)
-* `TransactionAmt` (valor da transacao)
-* `DeviceInfo` (informacao do dispositivo)
-* Features temporais (`transaction_hour`)
+99: LightGBM feature importance (gain). Top features:
+100: * Variáveis V com alto IV (V258, V257, V265)
+101: * `card1_amt_mean` / `card1_amt_std` (agregações por cartão)
+102: * `TransactionAmt` (valor da transação)
+103: * `DeviceInfo` (informação do dispositivo)
+104: * Features temporais (`transaction_hour`)
 
 ### SHAP
 
-SHAP analysis com 2.000 amostras do conjunto de teste. SHAP summary plot confirma que variaveis V e agregacoes por cartao sao as maiores contribuidoras para a deteccao de fraude.
+108: SHAP analysis com 2.000 amostras do conjunto de teste. SHAP summary plot confirma que variáveis V e agregações por cartão são as maiores contribuidoras para a detecção de fraude.
 
 ## Deploy
 
 Notebook: `04_DEPLOYED_MODEL`. Experimento: [fraud_detection_deployment](https://dbc-6181e49f-87e5.cloud.databricks.com/ml/experiments/28212970340608).
 
-Modelo registrado no Unity Catalog como `fraud_detection_dev.models.xgboost_fraud_model` com alias `@champion`.
-
-Deploy como pyfunc com FeatureLookup para a tabela serving compacta. Detalhes da arquitetura de serving em [serving.md](serving.md).
+113: 
+114: Modelo LightGBM registrado no Unity Catalog como `fraud_detection_dev.models.lgbm_fraud_model` com alias `@champion`.
+115: 
+116: Deploy como pyfunc com FeatureLookup para a tabela serving compacta. Detalhes da arquitetura de serving em [serving.md](serving.md).

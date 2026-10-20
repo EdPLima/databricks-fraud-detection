@@ -129,7 +129,7 @@ feature_store:
   split_methodology: temporal
 
 model:
-  registered_name: fraud_detection_dev.models.xgboost_fraud_model
+  registered_name: fraud_detection_dev.models.lgbm_fraud_model
   optimal_threshold: 0.83
 
 preprocessing:

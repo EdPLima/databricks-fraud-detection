@@ -75,6 +75,7 @@ ignore = ["E501", "N812"]  # E501: line too long, N812: `functions as F` is PySp
 
 [tool.ruff.lint.per-file-ignores]
 "tests/integration/*" = ["F821"]  # `spark` is a pytest fixture from conftest.py
+"src/databricks_fraud_model/evaluation/*" = ["N806"]  # X_train, y_train are ML convention
 
 [tool.mypy]
 python_version = "3.10"

@@ -3,15 +3,22 @@ resources:
     inference_monitoring:
       name: "Inference & Monitoring: Scoring -> Dashboard MLOps"
       description: "Scoring do modelo via endpoint REST + dashboard de latencia, drift e observabilidade."
+      max_concurrent_runs: 1
       tasks:
         - task_key: scoring_model
           notebook_task:
-            notebook_path: ../../pipeline/scoring/04_scoring.ipynb
+            notebook_path: ../../pipeline/scoring/scoring.py
+            base_parameters:
+              catalog: fraud_detection_dev
+              batch_type: prd
         - task_key: model_monitoring
           depends_on:
             - task_key: scoring_model
           notebook_task:
-            notebook_path: ../../pipeline/monitoring/05_monitoring.ipynb
+            notebook_path: ../../pipeline/monitoring/monitoring.py
+            base_parameters:
+              batch_type: prd
+              catalog: fraud_detection_dev
       schedule:
         quartz_cron_expression: "0 0 8 * * ?"
         timezone_id: America/Sao_Paulo
