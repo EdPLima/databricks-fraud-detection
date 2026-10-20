@@ -1,77 +1,179 @@
-name: CI
+# ============================================================
+# 1. NOME DO WORKFLOW
+# ============================================================
 
-on:
+name: CI - Qualidade do ccódigo e validacao
+
+# ============================================================
+# 2. EVENTOS QUE DISPARAM A CI
+# ============================================================
+
+# As aspas impedem que "on" seja interpretado
+# incorretamente por alguns parsers YAML externos.
+"on":
+
+  # Executa quando há alterações nessas branches.
   push:
-    branches: [dev, staging]
+    branches:
+      - dev
+      - staging
+      - main
+
+  # Executa antes da integração de Pull Requests.
   pull_request:
-    branches: [staging, main]
+    branches:
+      - dev
+      - staging
+      - main
+
+  # Permite execução manual pelo GitHub.
+  workflow_dispatch:
+
+# ============================================================
+# 3. PERMISSÕES DO GITHUB
+# ============================================================
 
 permissions:
+  # Permite ler o conteúdo do repositório.
   contents: read
 
+# ============================================================
+# 4. JOBS DA INTEGRAÇÃO CONTÍNUA
+# ============================================================
+
 jobs:
+
+  # ----------------------------------------------------------
+  # JOB 1: ANÁLISE ESTÁTICA
+  # ----------------------------------------------------------
   lint:
-    name: Lint (ruff)
+    name: Ruff - Static Analysis
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      # Baixa o código da branch ou Pull Request.
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      # Configura o Python do ambiente de CI.
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.12"
 
-      - name: Install ruff
-        run: pip install "ruff>=0.1.0"
+      # Instala o analisador estático.
+      - name: Install Ruff
+        run: python -m pip install "ruff>=0.1.0"
 
-      - name: Run ruff check
+      # Verifica problemas de código.
+      - name: Run Ruff
         run: ruff check src/ tests/
 
+
+  # ----------------------------------------------------------
+  # JOB 2: TESTES UNITÁRIOS
+  # ----------------------------------------------------------
   unit-tests:
-    name: Unit tests (pytest)
+    name: Pytest - Unit Tests
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Install dependencies
-        run: |
-          pip install -e ".[dev]"
-
-      - name: Run unit tests
-        run: |
-          pytest tests/unit/ -v --tb=short -m "not integration"
-
-  bundle-validate:
-    name: Bundle validate (dev + hml + prod)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.12"
 
+      # Instala o pacote local e dependências de testes.
+      # Exige que pyproject.toml declare o extra "dev".
+      - name: Install dependencies
+        run: python -m pip install -e ".[dev]"
+
+      # Executa somente testes unitários.
+      - name: Run unit tests
+        run: |
+          python -m pytest tests/unit/ \
+            -v --tb=short -m "not integration"
+
+
+  # ----------------------------------------------------------
+  # JOB 3: VALIDAÇÃO DOS ASSET BUNDLES
+  # ----------------------------------------------------------
+  bundle-validate:
+    name: Databricks Bundle Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Instala a CLI oficial do Databricks.
       - name: Install Databricks CLI
-        run: curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+        uses: databricks/setup-cli@main
 
-      - name: Validate bundle - dev
+      # Verifica se os secrets estao configurados.
+      - name: Check Databricks credentials
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: |
+          test -n "$DATABRICKS_HOST"
+          test -n "$DATABRICKS_TOKEN"
+
+      # Valida a definicao dos recursos em DEV.
+      - name: Validate DEV
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
         run: databricks bundle validate -t dev
 
-      - name: Validate bundle - hml
+      # Valida HML no mesmo workspace.
+      - name: Validate HML
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
         run: databricks bundle validate -t hml
 
-      - name: Validate bundle - prod
+      # Valida PROD sem realizar deployment.
+      - name: Validate PROD
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
         run: databricks bundle validate -t prod
+
+
+  # ----------------------------------------------------------
+  # JOB 4: CONTRATO DE DADOS E SEGURANCA DE PATHS
+  # ----------------------------------------------------------
+  data-contract:
+    name: Data Contract & Path Safety
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -e ".[dev]"
+
+      # Verifica que nenhum caminho absoluto de usuario existe no codigo.
+      - name: Check for hardcoded user paths
+        run: |
+          if grep -r "/Workspace/Users/" src/ pipeline/ retraining/ notebooks/ config/ --include="*.py" --include="*.ipynb" --include="*.yml"; then
+            echo "ERROR: Hardcoded user paths found. Use dynamic path resolution instead."
+            exit 1
+          fi
+          echo "OK: No hardcoded user paths found."
+
+      # Executa testes especificos de contrato de features.
+      - name: Run feature contract tests
+        run: |
+          python -m pytest tests/unit/test_feature_contract.py \
+            -v --tb=short -m "not integration"

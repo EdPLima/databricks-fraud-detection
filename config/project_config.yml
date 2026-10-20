@@ -4,7 +4,7 @@
 
 project:
   name: databricks-fraud-detection
-  root: /Workspace/Users/eduardolimaofficial410@gmail.com/databricks-fraud-detection
+  # root is derived by load_config() from __file__ location
 
 catalog: fraud_detection_dev
 
@@ -17,11 +17,12 @@ feature_store:
   split_methodology: temporal  # walk-forward, nao aleatorio
 
 experiments:
-  hpo: /Users/eduardolimaofficial410@gmail.com/databricks-fraud-detection/experiments/fraud_detection_walkforward
-  deploy: /Users/eduardolimaofficial410@gmail.com/databricks-fraud-detection/experiments/fraud_detection_deployment
+  # Relative paths resolved by load_config() using project root
+  hpo: experiments/fraud_detection_walkforward
+  deploy: experiments/fraud_detection_deployment
 
 model:
-  registered_name: fraud_detection_dev.models.xgboost_fraud_model
+  registered_name: models.lgbm_fraud_model  # resolved with catalog prefix by load_config()
   optimal_threshold: 0.83
   max_bins: 1500
   seed: 42

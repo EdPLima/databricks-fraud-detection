@@ -28,6 +28,14 @@ def test_model_registered_name():
     cfg = load_config()
     assert "registered_name" in cfg["model"]
     assert "xgboost" in cfg["model"]["registered_name"]
+    assert cfg["model"]["registered_name"].startswith(cfg["catalog"])
+
+
+def test_experiment_paths_resolved():
+    """Experiment paths should be resolved to absolute workspace paths."""
+    cfg = load_config()
+    for key, path in cfg["experiments"].items():
+        assert path.startswith("/"), f"Experiment {key} path is not absolute: {path}"
 
 
 def test_get_helper():

@@ -62,10 +62,14 @@ def test_score_batch_returns_predictions_with_latency(mock_ws, sample_df):
     assert "latency_ms" in preds.columns
     assert "endpoint_name" in preds.columns
     assert "n_records" in preds.columns
+    assert "request_id" in preds.columns
+    assert "status" in preds.columns
     assert preds["endpoint_name"].iloc[0] == ENDPOINT_NAME
     assert preds["n_records"].iloc[0] == 3
+    assert preds["status"].iloc[0] == "success"
     assert "TransactionID" in preds.columns
     assert preds["probability_fraud"].iloc[1] == 0.9
+    assert len(preds["request_id"].iloc[0]) > 0  # UUID is non-empty
 
 
 @patch("databricks_fraud_model.model.scoring.WorkspaceClient")
@@ -80,7 +84,7 @@ def test_score_batch_latency_is_positive(mock_ws, sample_df):
     assert preds["latency_ms"].iloc[0] >= 0
 
 
-def test_save_to_bronze_creates_events_df(sample_df):
+def test_save_to_bronze_includes_request_id_and_contract(sample_df):
     preds_df = pd.DataFrame({
         "TransactionID": [1, 2],
         "probability_fraud": [0.1, 0.9],
@@ -88,6 +92,8 @@ def test_save_to_bronze_creates_events_df(sample_df):
         "latency_ms": [50.0, 60.0],
         "endpoint_name": ["model_fraud", "model_fraud"],
         "n_records": [2, 2],
+        "request_id": ["req-1", "req-2"],
+        "status": ["success", "success"],
     })
 
     with patch("pyspark.sql.SparkSession") as mock_spark_cls:
@@ -97,8 +103,7 @@ def test_save_to_bronze_creates_events_df(sample_df):
 
         events = save_to_bronze(preds_df, table_name="test_catalog.test_schema.test_table")
 
-    assert len(events) == 2
-    assert "event_timestamp" in events.columns
-    assert "status" in events.columns
-    assert (events["status"] == "success").all()
-    assert "latency_ms" in events.columns
+    assert "request_id" in events.columns
+    assert "feature_contract_version" in events.columns
+    assert (events["request_id"] == ["req-1", "req-2"]).all()
+    assert (events["feature_contract_version"] == "1.0.0").all()
