@@ -12,11 +12,13 @@
 
 # MAGIC %pip install lightgbm -q
 # MAGIC
-# MAGIC import numpy as np, pandas as pd, mlflow, time, logging, sys
+# MAGIC import os, sys, logging
+# MAGIC import numpy as np, pandas as pd, mlflow, time
 # MAGIC from databricks.sdk import WorkspaceClient
 # MAGIC
-# MAGIC PROJECT_ROOT = "/Workspace/Users/eduardolimaofficial410@gmail.com/databricks-fraud-detection"
-# MAGIC sys.path.insert(0, f"{PROJECT_ROOT}/src")
+# MAGIC _nb = dbutils.notebook.entry_point.getNotebookPath()
+# MAGIC _r = _nb.split("databricks-fraud-detection")[0] + "databricks-fraud-detection"
+# MAGIC sys.path.insert(0, f"{_r}/src")
 # MAGIC from databricks_fraud_model.utils import load_config
 # MAGIC from databricks_fraud_model import MODEL_FEATURES
 # MAGIC

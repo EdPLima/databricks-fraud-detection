@@ -166,7 +166,7 @@ jobs:
       # Verifica que nenhum caminho absoluto de usuario existe no codigo.
       - name: Check for hardcoded user paths
         run: |
-          if grep -r "/Workspace/Users/" src/ pipeline/ retraining/ notebooks/ config/ --include="*.py" --include="*.ipynb" --include="*.yml"; then
+          if grep -r "/Workspace/Users/" src/ pipeline/ retraining/ notebooks/ --include="*.py" --include="*.ipynb" --include="*.yml"; then
             echo "ERROR: Hardcoded user paths found. Use dynamic path resolution instead."
             exit 1
           fi

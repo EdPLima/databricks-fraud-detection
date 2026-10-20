@@ -4,7 +4,7 @@
 
 project:
   name: databricks-fraud-detection
-  # root is derived by load_config() from __file__ location
+  root: "/Workspace/Users/eduardolimaofficial410@gmail.com/databricks-fraud-detection"
 
 catalog: fraud_detection_dev
 

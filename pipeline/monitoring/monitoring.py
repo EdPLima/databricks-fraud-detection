@@ -1,8 +1,9 @@
 # Databricks notebook source
 import os, sys, argparse, pandas as pd
 
-PROJECT_ROOT = "/Workspace/Users/eduardolimaofficial410@gmail.com/databricks-fraud-detection"
-sys.path.insert(0, f"{PROJECT_ROOT}/src")
+_nb = dbutils.notebook.entry_point.getNotebookPath()
+_r = _nb.split("databricks-fraud-detection")[0] + "databricks-fraud-detection"
+sys.path.insert(0, f"{_r}/src")
 from databricks_fraud_model.features import MODEL_FEATURES
 from databricks_fraud_model.utils import load_config
 from databricks_fraud_model.monitoring import (

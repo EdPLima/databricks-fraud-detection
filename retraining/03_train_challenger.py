@@ -17,7 +17,8 @@ dbutils.library.restartPython()
 
 # COMMAND ----------
 
-import numpy as np, pandas as pd, pickle, json, tempfile, os, logging
+import os, sys, logging
+import numpy as np, pandas as pd, pickle, json, tempfile
 import mlflow, mlflow.pyfunc, optuna
 from xgboost import XGBClassifier
 from sklearn.compose import ColumnTransformer
@@ -28,10 +29,10 @@ from sklearn.metrics import precision_score, recall_score, f1_score, average_pre
 from scipy.stats import ks_2samp
 from mlflow.models import infer_signature
 from mlflow.tracking import MlflowClient
-import sys
 
-PROJECT_ROOT = "/Workspace/Users/eduardolimaofficial410@gmail.com/databricks-fraud-detection"
-sys.path.insert(0, f"{PROJECT_ROOT}/src")
+_nb = dbutils.notebook.entry_point.getNotebookPath()
+_r = _nb.split("databricks-fraud-detection")[0] + "databricks-fraud-detection"
+sys.path.insert(0, f"{_r}/src")
 from databricks_fraud_model.utils import load_config
 
 cfg = load_config()
