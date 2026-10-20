@@ -22,7 +22,6 @@ Fluxo tipico (no notebook pipeline/monitoring/05_monitoring):
 import numpy as np
 import pandas as pd
 
-
 # ============================================================
 # 1. METRICAS DE LATENCIA
 # ============================================================

@@ -14,8 +14,8 @@ Fluxo tipico (no notebook pipeline/silver/02_silver_clean):
     # ... persistencia (MERGE ou overwrite) fica no notebook
 """
 
-from pyspark.sql import functions as F, Window
-
+from pyspark.sql import Window
+from pyspark.sql import functions as F
 
 # ============================================================
 # 1. DEDUPLICACAO DE IDENTIDADE

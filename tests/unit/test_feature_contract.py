@@ -5,7 +5,7 @@ Validam que o contrato de features (MODEL_FEATURES) e consistente,
 versionado, e que as funcoes de validacao funcionam corretamente.
 """
 
-import pandas as pd
+import hashlib
 
 from databricks_fraud_model.features import (
     FEATURE_CONTRACT_HASH,
@@ -14,7 +14,6 @@ from databricks_fraud_model.features import (
     validate_features,
 )
 from databricks_fraud_model.utils import load_config
-
 
 # ============================================================
 # 1. CONTRATO DE FEATURES — VERSIONAMENTO
@@ -28,7 +27,6 @@ def test_feature_contract_version_is_string():
 
 def test_feature_contract_hash_is_stable():
     """O hash do contrato deve ser deterministico."""
-    import hashlib
     expected = hashlib.sha256(
         ",".join(MODEL_FEATURES).encode()
     ).hexdigest()[:16]

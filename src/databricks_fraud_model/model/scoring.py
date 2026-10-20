@@ -7,17 +7,17 @@ receber predicoes e persistir resultados em camadas Bronze (eventos brutos) e Go
 """
 
 # --- Imports padrao ---
-import time                     # Medicao de latencia (perf_counter para alta precisao)
-import uuid                     # Geracao de request_id unico por chamada
-import logging                  # Logger para rastreabilidade de erros
+import logging  # Logger para rastreabilidade de erros
+import time  # Medicao de latencia (perf_counter para alta precisao)
+import uuid  # Geracao de request_id unico por chamada
 from datetime import datetime, timezone  # Timestamps UTC para eventos
 
 # --- Imports de terceiros ---
-import pandas as pd             # Manipulacao de DataFrames para predicoes
+import pandas as pd  # Manipulacao de DataFrames para predicoes
 from databricks.sdk import WorkspaceClient  # Cliente SDK para chamadas REST ao endpoint
 
 # --- Imports do proprio pacote ---
-from databricks_fraud_model.features import MODEL_FEATURES, FEATURE_CONTRACT_VERSION
+from databricks_fraud_model.features import FEATURE_CONTRACT_VERSION, MODEL_FEATURES
 from databricks_fraud_model.utils import load_config
 
 # --- Configuracao global do modulo ---
@@ -97,7 +97,7 @@ def score_batch(df, features=None, n=None, endpoint_name=ENDPOINT_NAME):
         latency_ms = round((time.perf_counter() - t0) * 1000, 2)
         status = 'success'
         logger.info(f"Scoring request {request_id} succeeded: {len(clean)} records, {latency_ms}ms")
-        
+
     except Exception as e:
         # Em caso de erro, ainda medimos a latencia para diagnostico
         latency_ms = round((time.perf_counter() - t0) * 1000, 2)
@@ -245,8 +245,8 @@ def save_predictions(df, preds_df, features=None, table_name=None, catalog=None)
         DataFrame pandas com as features + predicoes salvas.
     """
     # Importa Spark e DeltaTable aqui (lazy) para compatibilidade com testes
-    from pyspark.sql import SparkSession
     from delta.tables import DeltaTable
+    from pyspark.sql import SparkSession
 
     # --- Resolve parametros com fallback para config ---
     if features is None:
