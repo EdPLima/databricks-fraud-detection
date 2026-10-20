@@ -85,7 +85,7 @@ def test_config_model_name_has_catalog_prefix():
     """load_config deve prefixar o catalogo no nome do modelo."""
     cfg = load_config()
     assert cfg["model"]["registered_name"].startswith(cfg["catalog"])
-    assert "xgboost" in cfg["model"]["registered_name"]
+    assert "lgbm" in cfg["model"]["registered_name"]
 
 
 def test_config_experiment_paths_are_absolute():

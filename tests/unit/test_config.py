@@ -27,7 +27,7 @@ def test_feature_store_table():
 def test_model_registered_name():
     cfg = load_config()
     assert "registered_name" in cfg["model"]
-    assert "xgboost" in cfg["model"]["registered_name"]
+    assert "lgbm" in cfg["model"]["registered_name"]
     assert cfg["model"]["registered_name"].startswith(cfg["catalog"])
 
 
